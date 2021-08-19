@@ -4,13 +4,22 @@ from mesa.space import ContinuousSpace
 from mesa.datacollection import DataCollector
 # from mesa.batchrunner import BatchRunner
 
+import csv
+
+# Define the required Parameters
+
+PROD_DC = 100         # Initial quantity of products for DC
+PROD_SH = 5         # Initial quantity of products for SH
+ID_DC = 0           # First ID number for DC
+ID_SH = 1000        # First ID number for SH
 
 # Define the required Classes
 
 class DCAgent(Agent):
     def __init__(self, unique_id, model):
         super().__init__(unique_id, model)
-        self.products = 100
+        self.products = PROD_DC
+        self.type = "DC"
 
     def in_items (self):
         self.products += round(self.random.gauss(10, 5), 0)
@@ -25,7 +34,8 @@ class DCAgent(Agent):
 class ShopAgent(Agent):
     def __init__(self, unique_id, model):
         super().__init__(unique_id, model)
-        self.products = 5
+        self.products = PROD_SH
+        self.type = "SH"
         
     def in_items (self):
         self.products += round(self.random.gauss(5, 2), 0)
@@ -58,8 +68,12 @@ class MDVRPModel(Model):
         for agent in self.schedule.agents:
             self.schedule.remove(agent)
             
-        # Restart counter
-        self.step_counter = 0
+        # Restart counter (MESA's first step is 0)
+        self.step_counter = -1
+        
+        # Clean input.csv, network.csv files
+        self.generate_problem()
+        self.generate_network()
         
         # Create DC
         for i in range(self.num_DC):
@@ -86,13 +100,51 @@ class MDVRPModel(Model):
             print(agent.unique_id)
                 
     def step(self):
+        self.step_counter += 1
         for agent in self.schedule.agents:
             agent.in_items()
             agent.out_items()
         self.datacollector.collect(self)
         self.schedule.step()
-        self.step_counter += 1
+        self.generate_problem()
+        self.generate_network()
         print("---- Step: " + str (self.step_counter))
+        
+    def generate_problem (self):
+        agent_demand = self.datacollector.get_agent_vars_dataframe()
+        with open('input.csv', 'w', newline='') as csvinput:
+            writer = csv.writer(csvinput)
+            header = ["ID","Type","Xpos","Ypos","Products","Demand"]
+            writer.writerow(header)
+            prev_step = self.step_counter - 1
+            if prev_step > 0:
+                for agent in self.schedule.agents:
+                    demand = agent.products - agent_demand.loc[(prev_step, agent.unique_id),"Products"]
+                    row = [agent.unique_id, agent.type, agent.pos[0], agent.pos[1], agent.products, demand]
+                    writer.writerow(row)
+            else: # control for step 0 which is not considered in MESA
+                for agent in self.schedule.agents:
+                    if agent.type == "DC":
+                        demand = agent.products - PROD_DC
+                    else:
+                        demand = agent.products - PROD_SH
+                    row = [agent.unique_id, agent.type, agent.pos[0], agent.pos[1], agent.products, demand]
+                    writer.writerow(row)
+                    
+    def generate_network (self):
+        with open('network.csv', 'w', newline='') as csvnetwork:
+            writer = csv.writer(csvnetwork)
+            header = ["Orig","Dest","Cost","Active"]
+            writer.writerow(header)
+            for orig in self.schedule.agents:
+                for dest in self.schedule.agents:
+                    if orig != dest:
+                        dist = self.space.get_distance(orig.pos, dest.pos)
+                        row = [orig.unique_id, dest.unique_id, dist, "Y"]
+                        writer.writerow(row)
+                    
+                    
+        
         
        
 # Define the required Functions
@@ -106,3 +158,6 @@ def calculate_stock (model):
 
 # Main program execution
 
+model = MDVRPModel(2, 2, 250, 250)
+model.initiate()
+# model.step()

@@ -2,3 +2,5 @@
 img*
 venv*/
 *archive/
+*.csv
+*cache*

@@ -24,14 +24,11 @@ PLT_X = 2           # Plot X position (column)
 PLT_Y = 2           # Plot Y position (row)
 FRQ_STP = 0.2       # Step frequency
 
-N_DC = 2            # Number of DC Agents (Depot Center)
-N_SH = 6            # Number of SH Agents (Shops)
+N_DC = 3            # Number of DC Agents (Depot Center)
+N_SH = 10            # Number of SH Agents (Shops)
 MDL_X = 250         # Model Width
 MDL_Y = 250         # Model Height
-PROD_DC = 0         # Initial quantity of products for DC
-PROD_SH = 0         # Initial quantity of products for SH
-ID_DC = 0           # First ID number for DC
-ID_SH = 1000        # First ID number for SH
+
 
 # Define the required Classes
 
@@ -170,7 +167,7 @@ if __name__ == "__main__":
     #Insert Step Counter
     step_counter = StringVar(root)
     Stp_ctr = Label(root, textvariable=step_counter)
-    step_counter.set("Step: 0")
+    step_counter.set("Step: -")
     Stp_ctr.grid(column=1, row=1)
 
     #End
