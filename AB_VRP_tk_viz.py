@@ -25,7 +25,7 @@ PLT_Y = 2           # Plot Y position (row)
 FRQ_STP = 0.2       # Step frequency
 
 N_DC = 3            # Number of DC Agents (Depot Center)
-N_SH = 10            # Number of SH Agents (Shops)
+N_SP = 10           # Number of SP Agents (Shops)
 MDL_X = 250         # Model Width
 MDL_Y = 250         # Model Height
 
@@ -120,7 +120,7 @@ def on_closing():
 
 if __name__ == "__main__":
     
-    model = MDVRPModel(N_DC, N_SH, MDL_X, MDL_Y)
+    model = MDVRPModel(N_DC, N_SP, MDL_X, MDL_Y)
     model.initiate()
     
     global running
