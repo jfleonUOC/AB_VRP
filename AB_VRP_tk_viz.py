@@ -38,9 +38,10 @@ MDL_Y = 250         # Model Height
 def dummy_message ():
     print("dummy message")
     
-def create_img (Model):
-    dwg = draw_Agents_products(Model)
+def create_img (Model, routes=None):
+    # dwg = draw_Agents_products(Model)
     # dwg = draw_Agents_positions(Model)
+    dwg = draw_VRP_sol(Model, routes)
     dwg.save()
     drawing = svg2rlg("img.svg") 
     renderPM.drawToFile(drawing, "img.png", fmt="PNG")
@@ -64,7 +65,7 @@ def update_plot (model, tk_column, tk_row):
 
 def reset_model (model):
     model.initiate()
-    img = create_img(model)
+    img = create_img(model, model.routes)
     display_img(img, IMG_X, IMG_Y)
     update_plot(model, PLT_X, PLT_Y)
     step_counter.set("Step: " + str(model.step_counter))
@@ -73,7 +74,7 @@ def reset_model (model):
     
 def step_model ():
     model.step()
-    img = create_img(model)
+    img = create_img(model, model.routes)
     display_img(img, IMG_X, IMG_Y)
     update_plot(model, PLT_X, PLT_Y)
     step_counter.set("Step: " + str(model.step_counter))
@@ -82,7 +83,7 @@ def running_model():
     global running
     while True:
         model.step()
-        img = create_img(model)
+        img = create_img(model, model.routes)
         display_img(img, IMG_X, IMG_Y)
         update_plot(model, PLT_X, PLT_Y)
         step_counter.set("Step: " + str(model.step_counter))
@@ -158,7 +159,7 @@ if __name__ == "__main__":
     MenuBar.add_cascade(label="Info", menu=TemplateMenu)
     
     #Insert Image
-    image_agents = create_img(model)
+    image_agents = create_img(model, model.routes)
     img_panel = display_img(image_agents, IMG_X, IMG_Y)
     
     #Insert Plot

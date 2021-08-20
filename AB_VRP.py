@@ -88,6 +88,7 @@ class MDVRPModel(Model):
             agent_reporters={"Products": "products"})
         
         self.solver = HSolver()
+        self.routes = None
         
     def initiate(self):
         
@@ -137,8 +138,8 @@ class MDVRPModel(Model):
         self.schedule.step()
         self.generate_problem()
         self.generate_network()
-        dc_sp, dc_sp_pos = self.solver.solve_MD_short()
-        self.solver.solve_VRP_greedy()
+        dc_sp, dc_sp_pos, outfiles = self.solver.solve_MD_short()
+        self.routes = self.solver.aggregate_VRP(*outfiles)
         print("---- Step: " + str (self.step_counter))
         
     def generate_problem (self):
