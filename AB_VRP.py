@@ -13,11 +13,11 @@ from hsolver import HSolver
 # Define the required Parameters
 
 PROD_DC = 100       # Initial quantity of products for DC
-PROD_SP = 5         # Initial quantity of products for SP
+PROD_SP = 10        # Initial quantity of products for SP
 ID_DC = 0           # First ID number for DC
 ID_SP = 1000        # First ID number for SP
 
-DEM_AV = 5          # Demand average in SP
+DEM_AV = 3          # Demand average in SP
 DEM_SD = 2          # Demand st dev in SP
 
 # Define the required Classes
@@ -36,7 +36,8 @@ class DCAgent(Agent):
         self.products += round(self.random.gauss(self.sup_av, self.sup_sd), 0)
         
     def out_items (self):
-        self.products -= round(self.random.gauss(10, 5), 0)
+        # self.products -= round(self.random.gauss(10, 5), 0)
+        pass
         
     def calc_supply (self):
         """
@@ -51,9 +52,13 @@ class DCAgent(Agent):
         # print("supply std dev: " + str(sup_sd))
         return (sup_av, sup_sd)
         
-    # def step(self):
+    def step (self):
         # print ("DC ID " + str(self.unique_id) +"- Products: " + str(self.products))
-        
+        #TODO: check item to be sent out based on route demands
+        #TODO: create transport agents
+        self.in_items()
+        self.out_items()
+        pass
         
 class SPAgent(Agent):
     """Shop Agent"""
@@ -61,16 +66,49 @@ class SPAgent(Agent):
         super().__init__(unique_id, model)
         self.products = PROD_SP
         self.type = "SP"
+        self.next = 0
+        self.route = 0
         
     def in_items (self):
-        self.products += round(self.random.gauss(5, 2), 0)
+        # self.products += round(self.random.gauss(5, 2), 0)
+        pass
         
     def out_items (self):
-        self.products -= round(self.random.gauss(DEM_AV, DEM_SD), 0) 
+        # Decide whether there is demand or not
+        p_list = []
+        for i in range (5): # If "5" probability will be (1/5)
+            p_list.append(0)
+        p_list[0] = 1
+        choice = self.random.choice(p_list)
+        if choice ==1:
+            self.products -= round(self.random.gauss(DEM_AV, DEM_SD), 0) 
 
-    # def step(self):
+    def step (self):
         # print ("Shop ID " + str(self.unique_id) +"- Products: " + str(self.products))
+        #TODO: check if transport item has arrived
+        #TODO: reduce amount of item in transport
+        self.in_items()
+        self.out_items()
+        pass
+
+class TRAgent(Agent):
+    """Transport Agent"""
+    def __init__(self,unique_id, model):
+        super().__init__(unique_id, model)
+        self.products = 0
+        self.type = "TR"
         
+    def in_items (self):
+        # Nothing - created with the max. qty to transport
+        pass
+    
+    def out_items (self):
+        #TODO: remove qty if in shop position
+        pass
+    
+    def step (self):
+        pass
+
 
 class MDVRPModel(Model):
     def __init__(self, N_DC, N_SP, width, height):
@@ -131,9 +169,9 @@ class MDVRPModel(Model):
                 
     def step(self):
         self.step_counter += 1
-        for agent in self.schedule.agents:
-            agent.in_items()
-            agent.out_items()
+        # for agent in self.schedule.agents:
+        #     agent.in_items()
+        #     agent.out_items()
         self.datacollector.collect(self)
         self.schedule.step()
         self.generate_problem()
@@ -175,8 +213,6 @@ class MDVRPModel(Model):
                         row = [orig.unique_id, dest.unique_id, dist, "Y"]
                         writer.writerow(row)
     
-
-
 
 # Define the required Functions
 
