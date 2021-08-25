@@ -6,8 +6,9 @@ from mesa.batchrunner import BatchRunner
 
 import csv
 import matplotlib.pyplot as plt
+import numpy as np
 
-from hsolver import HSolver
+from hsolver import *
 
 
 # Define the required Parameters
@@ -29,14 +30,20 @@ class DCAgent(Agent):
         self.model = model
         self.products = PROD_DC
         self.type = "DC"
+        self.demand = 0
         self.sup_av = self.calc_supply()[0]
         self.sup_sd = self.calc_supply()[1]
 
     def in_items (self):
-        self.products += round(self.random.gauss(self.sup_av, self.sup_sd), 0)
+        self.demand = round(self.random.gauss(self.sup_av, self.sup_sd), 0)
+        self.products += self.demand
         
     def out_items (self):
         # self.products -= round(self.random.gauss(10, 5), 0)
+        # for route in routes:
+        #     tr_id = 4000 + 100*model.step_counter + route_id
+        #     trans = TRAgent(tr_id, self)
+        #     self.schedule.add(trans)
         pass
         
     def calc_supply (self):
@@ -66,6 +73,7 @@ class SPAgent(Agent):
         super().__init__(unique_id, model)
         self.products = PROD_SP
         self.type = "SP"
+        self.demand = 0
         self.next = 0
         self.route = 0
         
@@ -76,12 +84,15 @@ class SPAgent(Agent):
     def out_items (self):
         # Decide whether there is demand or not
         p_list = []
-        for i in range (5): # If "5" probability will be (1/5)
+        for i in range (4): # If "5" probability will be (1/5)
             p_list.append(0)
         p_list[0] = 1
         choice = self.random.choice(p_list)
         if choice ==1:
-            self.products -= round(self.random.gauss(DEM_AV, DEM_SD), 0) 
+            self.demand = round(self.random.gauss(DEM_AV, DEM_SD), 0) 
+            self.products -= self.demand
+        else:
+            self.demand = 0
 
     def step (self):
         # print ("Shop ID " + str(self.unique_id) +"- Products: " + str(self.products))
@@ -97,6 +108,7 @@ class TRAgent(Agent):
         super().__init__(unique_id, model)
         self.products = 0
         self.type = "TR"
+        self.avg_dist = calculate_avg_dist()
         
     def in_items (self):
         # Nothing - created with the max. qty to transport
@@ -133,13 +145,15 @@ class MDVRPModel(Model):
         # Delete existing agents from schedule
         for agent in self.schedule.agents:
             self.schedule.remove(agent)
-            
         # Restart counter (MESA's first step is 0)
         self.step_counter = -1
-        
+        # Restart routes
+        self.routes = None
+        # Delete .csv files
+        del_files_by_pattern(r".csv$")
         # Clean input.csv, network.csv files
         self.generate_problem()
-        self.generate_network()
+        # self.generate_network()
         
         # Create DC
         for i in range(self.N_DC):
@@ -161,11 +175,8 @@ class MDVRPModel(Model):
             y = self.random.randrange(self.space.height)
             self.space.place_agent(a, (x, y))
             
-        print ("Agents in model:")
-        for agent in self.schedule.agents:
-            print(agent.unique_id)
-            
-        # self.calc_supply()
+        # Info message:
+        print ("New model created with {0} DC and {1} Shops".format(self.N_DC, self.N_SP))
                 
     def step(self):
         self.step_counter += 1
@@ -176,12 +187,12 @@ class MDVRPModel(Model):
         self.schedule.step()
         self.generate_problem()
         self.generate_network()
-        dc_sp, dc_sp_pos, outfiles = self.solver.solve_MD_short()
+        dc_sp, dc_sp_pos, outfiles = self.solver.solve_MD_short_demand()
         self.routes = self.solver.aggregate_VRP(*outfiles)
         print("---- Step: " + str (self.step_counter))
         
     def generate_problem (self):
-        agent_demand = self.datacollector.get_agent_vars_dataframe()
+        # agent_demand = self.datacollector.get_agent_vars_dataframe()
         with open('input.csv', 'w', newline='') as csvinput:
             writer = csv.writer(csvinput)
             header = ["ID","Type","Xpos","Ypos","Products","Demand"]
@@ -189,8 +200,9 @@ class MDVRPModel(Model):
             prev_step = self.step_counter - 1
             if prev_step > 0:
                 for agent in self.schedule.agents:
-                    demand = agent.products - agent_demand.loc[(prev_step, agent.unique_id),"Products"]
-                    row = [agent.unique_id, agent.type, agent.pos[0], agent.pos[1], agent.products, demand]
+                    # demand = agent.products - agent_demand.loc[(prev_step, agent.unique_id),"Products"]
+                    # print("{3} current prod: {0}, previous prod: {1}, demand: {2}". format(agent.products, agent_demand.loc[(prev_step, agent.unique_id),"Products"], demand, agent.unique_id))
+                    row = [agent.unique_id, agent.type, agent.pos[0], agent.pos[1], agent.products, agent.demand]
                     writer.writerow(row)
             else: # control for step 0 which is not considered in MESA
                 for agent in self.schedule.agents:
@@ -221,6 +233,17 @@ def calculate_stock (model):
     for agent in model.schedule.agents:
         stock += agent.products
     return stock
+
+def calculate_avg_dist (net_file = 'network.csv'):
+    with open(net_file, newline='') as network:
+        reader = csv.reader(network)
+        next(reader, None) # skip header
+        dist = []
+        for path in reader:
+            dist.append(float(path[2]))
+        avg_dist = round(np.mean(dist),0)
+        # print (avg_dist)
+    return avg_dist
         
 
 # Main program execution
@@ -230,10 +253,11 @@ if __name__ == "__main__":
     # Single step Run (comment if not used):
     model = MDVRPModel(2, 10, 250, 250)
     model.initiate()
-    model.step()   
+    model.step()
+    calculate_avg_dist()
     
     # Complete Run (comment if not used):
-    # model = MDVRPModel(3, 10, 250, 250)
+    # model = MDVRPModel(3, 15, 300, 300)
     # model.initiate()
     # for i in range(100):
     #     model.step()
@@ -241,10 +265,10 @@ if __name__ == "__main__":
     # Stock_all.plot()
     
     # Batch Run (comment if not used):
-    # fixed_params = {"N_SP": 10,
-    #                 "width": 250,
-    #                 "height": 250}
-    # variable_params = {"N_DC": (1,3,5,7)}
+    # fixed_params = {"N_SP": 15,
+    #                 "width": 300,
+    #                 "height": 300}
+    # variable_params = {"N_DC": (3,4)}
 
     # batch_run = BatchRunner(MDVRPModel,
     #                         variable_params,

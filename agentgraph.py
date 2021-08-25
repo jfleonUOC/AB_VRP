@@ -36,6 +36,18 @@ def draw_Agents_positions (Model):
         dwg.add(dwg.text(agent.pos, insert=agent.pos))
     return dwg
 
+def draw_Agents_id (Model):
+    dwg = svgwrite.Drawing('img.svg', profile='tiny')
+    dwg.viewbox(-SPC_PAD, -SPC_PAD, Model.width+2*SPC_PAD, Model.height+2*SPC_PAD)
+    for agent in Model.schedule.agents:
+        if agent.unique_id < 1000:
+            dwg.add(dwg.circle(agent.pos, AGENT_R, fill='red'))
+        else:
+            dwg.add(dwg.circle(agent.pos, AGENT_R, fill='blue'))
+        dwg.add(dwg.text(agent.unique_id, insert=agent.pos))
+        dwg.add(dwg.text(agent.products, fill="green", insert=(agent.pos[0],agent.pos[1]+10)))
+    return dwg
+
 def draw_MD_sol (Model,dc_sp_pos):
     dwg = svgwrite.Drawing('img.svg', profile='tiny')
     dwg.viewbox(-SPC_PAD, -SPC_PAD, Model.width+2*SPC_PAD, Model.height+2*SPC_PAD)
@@ -49,9 +61,9 @@ def draw_MD_sol (Model,dc_sp_pos):
         dwg.add(dwg.text(agent.unique_id, insert=agent.pos))
     return dwg
 
-def draw_VRP_sol (Model, routes):
+def draw_VRP_sol (Model, routes=None):
     if routes == None:
-        dwg = draw_Agents_products(Model)
+        dwg = draw_Agents_id(Model)
     else:
         dwg = svgwrite.Drawing('img.svg', profile='tiny')
         dwg.viewbox(-SPC_PAD, -SPC_PAD, Model.width+2*SPC_PAD, Model.height+2*SPC_PAD)

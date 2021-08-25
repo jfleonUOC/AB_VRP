@@ -27,17 +27,17 @@ class Arc ():
         self.ID = ID
         self.orig_node = orig_node
         self.dest_node = dest_node
-        self.orig_pos = (orig_node.Xpos, orig_node.Ypos)
-        self.dest_pos = (dest_node.Xpos, dest_node.Ypos)
+        self.orig_pos = (float(orig_node.Xpos), float(orig_node.Ypos))
+        self.dest_pos = (float(dest_node.Xpos), float(dest_node.Ypos))
         self.distance= calc_dist (self.orig_pos, self.dest_pos)
         if cost == None:
             self.cost = self.distance
         else:
             self.cost = cost
         
-        def print_arc_info(self):
-            info = [self.orig_node.ID,self.dest.ID, self.cost]
-            print("Arc from ID {0} to ID {1}. Cost is: {2}".format(*info))
+    def print_arc_info(self):
+        info = [self.orig_node.ID,self.dest_node.ID, self.cost]
+        print("Arc from ID {0} to ID {1}. Cost is: {2}".format(*info))
 
 
 class HSolver ():
@@ -96,7 +96,8 @@ class HSolver ():
                                     writer.writerow(row)
                 
         return dc_sp, dc_sp_pos, outfiles
-    
+
+
     def solve_MD_short_demand (self):
         """
         Solve Multi-Depot part of the problem by shortest path
@@ -106,49 +107,50 @@ class HSolver ():
         del_files_by_pattern(r"(vrp_\d{1,2}).csv$")
                         
         # Solve the MD problem
-        with open("input.csv", newline='') as csvfile:
-            reader = csv.DictReader(csvfile)
-            read = list(reader)
-            dc_sp = []
-            dc_sp_pos = []
-            for row_sp in read:
+        Node_list = parse_input()
+        dc_sp = []
+        dc_sp_pos = []
+        for node_sp in Node_list:
+            if float(node_sp.Demand) != 0 and node_sp.Type == "SP":
                 dist_min = np.inf
-                if row_sp["Type"] == "SP":
-                    dist_min = np.inf
-                    for row_dc in read:
-                        if row_dc["Type"] == "DC":
-                            pos1 = (int(row_sp["Xpos"]),int(row_sp["Ypos"]))
-                            pos2 = (int(row_dc["Xpos"]),int(row_dc["Ypos"]))
-                            dist = calc_dist(pos1, pos2)
-                            if dist < dist_min:
-                                dist_min = dist
-                                dc_min = row_dc["ID"]
-                                dc_min_pos = (row_dc["Xpos"],row_dc["Ypos"])
-                    dc_sp.append((dc_min,row_sp["ID"]))
-                    sp_pos = (row_sp["Xpos"],row_sp["Ypos"])
-                    dc_sp_pos.append((dc_min_pos,sp_pos))
-                    
-            # Output the vrp*.csv files
-            outfiles = []
+                for node_dc in Node_list:
+                    if node_dc.Type == "DC":
+                        pos_sp = (int(node_sp.Xpos), int(node_sp.Ypos))
+                        pos_dc = (int(node_dc.Xpos), int(node_dc.Ypos))
+                        dist = calc_dist(pos_sp, pos_dc)
+                        if dist < dist_min:
+                            dist_min = dist
+                            dc_min = node_dc.ID
+                            dc_min_pos = pos_dc
+                dc_sp.append((dc_min,node_sp.ID))
+                dc_sp_pos.append((dc_min_pos,pos_sp))
+                            
+        # Output the vrp*.csv files
+        outfiles = []
+        try:
             for dc in range(int(max(dc_sp)[0])+1):
                 f_name = "vrp_"+str(dc)+".csv"
                 outfiles.append(f_name)
                 with open(f_name, 'w', newline='') as csvoutput:
                     writer = csv.writer(csvoutput)
                     # write depot coordinates with demand = 0
-                    for dict_line in read:
-                        if dict_line["ID"] == str(dc):
-                            writer.writerow([dict_line["Xpos"],dict_line["Ypos"],0])
-                    # write shop coordinates with demand
+                    for node in Node_list:
+                        if node.ID == str(dc):
+                            writer.writerow([node.Xpos, node.Ypos,0])
+                    # write shop coordinates with positive demand
                     for sol in dc_sp:
                         if int(sol[0]) == dc:
-                            for dict_line in read:
-                                if dict_line["ID"] == sol[1]:
-                                    sp_x = dict_line["Xpos"]
-                                    sp_y = dict_line["Ypos"]
-                                    sp_demand = dict_line["Demand"]
+                            for node in Node_list:
+                                # print (node.Demand)
+                                # print (type(node.Demand))
+                                if node.ID == sol[1] and float(node.Demand) != 0:
+                                    sp_x = node.Xpos
+                                    sp_y = node.Ypos
+                                    sp_demand = abs(float(node.Demand))
                                     row = [sp_x, sp_y, sp_demand]
                                     writer.writerow(row)
+        except: # case when 
+            print("exception due to no demand -> 'dc_sp' is: ",dc_sp)
                 
         return dc_sp, dc_sp_pos, outfiles
 
@@ -292,10 +294,25 @@ def parse_input (input_f="input.csv"):
             Node_list.append(node)
     return Node_list
 
-def parse_route (Node_list):
-        
-    # return Route_list
-    pass
+def parse_route (file="output.csv"):
+    """Returns a dict of lists of arc objects with route num. as keys"""
+    Route_dict = {}
+    Node_list = parse_input()
+    with open(file, newline='') as output_f:
+        reader = csv.DictReader(output_f)
+        for r_arc in reader:
+            ID = r_arc["Arc"] + "-" + r_arc["Route"]
+            orig_node = find_node_by_id(Node_list, r_arc["Orig"])
+            dest_node = find_node_by_id(Node_list, r_arc["Dest"])
+            qty = r_arc["Qty"]
+            arc = Arc(ID, orig_node, dest_node, qty)
+            if r_arc["Route"] not in Route_dict:
+                Route_dict[r_arc["Route"]] = []
+            Route_dict[r_arc["Route"]].append(arc)
+    #TODO: check that "Qty" for each route is the demand
+    # for arc in Route_dict["1"]:
+    #     arc.print_arc_info()
+    return Route_dict
 
 def find_node_by_id (Node_list, ID):
     for node in Node_list:
@@ -316,10 +333,8 @@ if __name__ == "__main__":
     solver = HSolver()
     # solver.solve_MD_short()
     # solver.solve_VRP_greedy("vrp_1.csv")
-    dc_sp, dc_sp_pos, outfiles = solver.solve_MD_short()
+    dc_sp, dc_sp_pos, outfiles = solver.solve_MD_short_demand()
     routes = solver.aggregate_VRP(*outfiles)
-    print (routes)
-    Node_list = parse_input()
-    # for n in Node_list:
-    #     n.print_node_info()
+    parse_route()
+
    
